@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "1.0.0",
+  "files": [
+    "sample_logs/access.txt"
+  ],
+  "filesCount": 1,
+  "processedLinesCount": 7,
+  "malformedLinesCount": 0,
+  "totalRequestsCount": 7,
+  "responseCodes": {
+    "200": 3,
+    "201": 1,
+    "304": 1,
+    "404": 1,
+    "500": 1
+  },
+  "resources": [
+    {
+      "resource": "/api/orders",
+      "totalRequestsCount": 4
+    },
+    {
+      "resource": "/api/orders/42",
+      "totalRequestsCount": 1
+    },
+    {
+      "resource": "/downloads/product_1",
+      "totalRequestsCount": 1
+    },
+    {
+      "resource": "/health",
+      "totalRequestsCount": 1
+    }
+  ],
+  "responseSizeInBytes": {
+    "average": 300,
+    "max": 600,
+    "p95": 600
+  },
+  "protocols": [
+    "HTTP/1.1",
+    "HTTP/2.0"
+  ],
+  "requestsByWeekday": [
+    {
+      "weekday": "Monday",
+      "weekdayCount": 1
+    },
+    {
+      "weekday": "Tuesday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Wednesday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Thursday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Friday",
+      "weekdayCount": 1
+    },
+    {
+      "weekday": "Saturday",
+      "weekdayCount": 3
+    },
+    {
+      "weekday": "Sunday",
+      "weekdayCount": 2
+    }
+  ],
+  "timeRange": {
+    "first": "2025-02-28T23:59:59Z",
+    "last": "2025-03-03T18:30:00Z"
+  },
+  "statusClasses": {
+    "1xx": 0,
+    "2xx": 4,
+    "3xx": 1,
+    "4xx": 1,
+    "5xx": 1
+  },
+  "errorRate": 0.1429,
+  "clientErrorRate": 0.1429,
+  "methods": [
+    {
+      "method": "GET",
+      "count": 6
+    },
+    {
+      "method": "POST",
+      "count": 1
+    }
+  ],
+  "topIPs": [
+    {
+      "ip": "198.51.100.7",
+      "count": 2
+    },
+    {
+      "ip": "203.0.113.42",
+      "count": 2
+    },
+    {
+      "ip": "93.180.71.3",
+      "count": 2
+    },
+    {
+      "ip": "192.0.2.10",
+      "count": 1
+    }
+  ],
+  "topErrorResources": [
+    {
+      "resource": "/api/orders",
+      "count": 1
+    }
+  ]
+}

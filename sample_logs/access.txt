@@ -1,0 +1,7 @@
+93.180.71.3 - - [28/Feb/2025:23:59:59 +0000] "GET /health HTTP/1.1" 200 100 "-" "incident-radar-sample/1.0"
+93.180.71.3 - alice [01/Mar/2025:08:05:32 +0000] "GET /downloads/product_1 HTTP/1.1" 304 0 "-" "Debian APT-HTTP/1.3"
+198.51.100.7 - - [01/Mar/2025:09:10:00 +0000] "GET /api/orders HTTP/1.1" 200 200 "https://example.com/" "Mozilla/5.0"
+198.51.100.7 - - [01/Mar/2025:09:11:00 +0000] "POST /api/orders HTTP/1.1" 201 300 "https://example.com/" "Mozilla/5.0"
+203.0.113.42 - - [02/Mar/2025:12:00:00 +0300] "GET /api/orders HTTP/2.0" 500 400 "-" "curl/8.0"
+203.0.113.42 - - [02/Mar/2025:12:01:00 +0300] "GET /api/orders/42 HTTP/2.0" 404 500 "-" "curl/8.0"
+192.0.2.10 - - [03/Mar/2025:18:30:00 +0000] "GET /api/orders HTTP/1.1" 200 600 "-" "Mozilla/5.0"

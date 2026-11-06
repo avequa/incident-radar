@@ -1,0 +1,237 @@
+{
+  "schemaVersion": "1.0.0",
+  "files": [
+    "sample_logs/incident.log"
+  ],
+  "filesCount": 1,
+  "processedLinesCount": 901,
+  "malformedLinesCount": 1,
+  "totalRequestsCount": 900,
+  "responseCodes": {
+    "200": 668,
+    "304": 50,
+    "404": 21,
+    "502": 50,
+    "503": 59,
+    "504": 52
+  },
+  "resources": [
+    {
+      "resource": "/api/checkout",
+      "totalRequestsCount": 168
+    },
+    {
+      "resource": "/",
+      "totalRequestsCount": 132
+    },
+    {
+      "resource": "/static/app.css",
+      "totalRequestsCount": 107
+    },
+    {
+      "resource": "/static/app.js",
+      "totalRequestsCount": 102
+    },
+    {
+      "resource": "/catalog",
+      "totalRequestsCount": 93
+    }
+  ],
+  "responseSizeInBytes": {
+    "average": 15163.99,
+    "max": 39897,
+    "p95": 37470
+  },
+  "protocols": [
+    "HTTP/1.1"
+  ],
+  "requestsByWeekday": [
+    {
+      "weekday": "Monday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Tuesday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Wednesday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Thursday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Friday",
+      "weekdayCount": 0
+    },
+    {
+      "weekday": "Saturday",
+      "weekdayCount": 900
+    },
+    {
+      "weekday": "Sunday",
+      "weekdayCount": 0
+    }
+  ],
+  "timeRange": {
+    "first": "2026-03-14T05:00:06Z",
+    "last": "2026-03-14T05:44:58Z"
+  },
+  "statusClasses": {
+    "1xx": 0,
+    "2xx": 668,
+    "3xx": 50,
+    "4xx": 21,
+    "5xx": 161
+  },
+  "errorRate": 0.1789,
+  "clientErrorRate": 0.0233,
+  "methods": [
+    {
+      "method": "GET",
+      "count": 694
+    },
+    {
+      "method": "POST",
+      "count": 206
+    }
+  ],
+  "topIPs": [
+    {
+      "ip": "203.0.113.77",
+      "count": 127
+    },
+    {
+      "ip": "10.0.1.22",
+      "count": 19
+    },
+    {
+      "ip": "10.0.2.26",
+      "count": 18
+    },
+    {
+      "ip": "10.0.2.28",
+      "count": 17
+    },
+    {
+      "ip": "10.0.1.26",
+      "count": 16
+    }
+  ],
+  "topErrorResources": [
+    {
+      "resource": "/api/checkout",
+      "count": 142
+    },
+    {
+      "resource": "/api/cart",
+      "count": 19
+    }
+  ],
+  "timeline": {
+    "bucket": "5m",
+    "points": [
+      {
+        "start": "2026-03-14T05:00:00Z",
+        "requests": 86,
+        "1xx": 0,
+        "2xx": 79,
+        "3xx": 4,
+        "4xx": 3,
+        "5xx": 0,
+        "errorRate": 0,
+        "p95SizeBytes": 36992
+      },
+      {
+        "start": "2026-03-14T05:05:00Z",
+        "requests": 85,
+        "1xx": 0,
+        "2xx": 75,
+        "3xx": 7,
+        "4xx": 3,
+        "5xx": 0,
+        "errorRate": 0,
+        "p95SizeBytes": 37260
+      },
+      {
+        "start": "2026-03-14T05:10:00Z",
+        "requests": 85,
+        "1xx": 0,
+        "2xx": 79,
+        "3xx": 5,
+        "4xx": 1,
+        "5xx": 0,
+        "errorRate": 0,
+        "p95SizeBytes": 38174
+      },
+      {
+        "start": "2026-03-14T05:15:00Z",
+        "requests": 110,
+        "1xx": 0,
+        "2xx": 62,
+        "3xx": 9,
+        "4xx": 4,
+        "5xx": 35,
+        "errorRate": 0.3182,
+        "p95SizeBytes": 36430
+      },
+      {
+        "start": "2026-03-14T05:20:00Z",
+        "requests": 135,
+        "1xx": 0,
+        "2xx": 73,
+        "3xx": 6,
+        "4xx": 3,
+        "5xx": 53,
+        "errorRate": 0.3926,
+        "p95SizeBytes": 36335
+      },
+      {
+        "start": "2026-03-14T05:25:00Z",
+        "requests": 140,
+        "1xx": 0,
+        "2xx": 69,
+        "3xx": 8,
+        "4xx": 2,
+        "5xx": 61,
+        "errorRate": 0.4357,
+        "p95SizeBytes": 34299
+      },
+      {
+        "start": "2026-03-14T05:30:00Z",
+        "requests": 94,
+        "1xx": 0,
+        "2xx": 72,
+        "3xx": 5,
+        "4xx": 5,
+        "5xx": 12,
+        "errorRate": 0.1277,
+        "p95SizeBytes": 38183
+      },
+      {
+        "start": "2026-03-14T05:35:00Z",
+        "requests": 82,
+        "1xx": 0,
+        "2xx": 80,
+        "3xx": 2,
+        "4xx": 0,
+        "5xx": 0,
+        "errorRate": 0,
+        "p95SizeBytes": 36936
+      },
+      {
+        "start": "2026-03-14T05:40:00Z",
+        "requests": 83,
+        "1xx": 0,
+        "2xx": 79,
+        "3xx": 4,
+        "4xx": 0,
+        "5xx": 0,
+        "errorRate": 0,
+        "p95SizeBytes": 38238
+      }
+    ]
+  }
+}

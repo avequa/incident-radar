@@ -1,0 +1,505 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "report contract version (semver)",
+      "const": "1.0.0"
+    },
+    "files": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "read sources in processing order"
+    },
+    "filesCount": {
+      "type": "integer"
+    },
+    "processedLinesCount": {
+      "type": "integer",
+      "description": "non-empty lines read, valid and malformed"
+    },
+    "malformedLinesCount": {
+      "type": "integer",
+      "description": "skipped malformed lines"
+    },
+    "totalRequestsCount": {
+      "type": "integer",
+      "description": "number of requests in the main period"
+    },
+    "responseCodes": {
+      "type": "object",
+      "description": "HTTP status code -\u003e number of requests",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[1-5][0-9]{2}$"
+      }
+    },
+    "resources": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string"
+          },
+          "totalRequestsCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource",
+          "totalRequestsCount"
+        ],
+        "additionalProperties": false
+      },
+      "description": "most requested resources, count desc, then resource asc"
+    },
+    "responseSizeInBytes": {
+      "type": "object",
+      "properties": {
+        "average": {
+          "type": "number",
+          "description": "mean response size, rounded to 2 decimals"
+        },
+        "max": {
+          "type": "integer",
+          "description": "maximum response size"
+        },
+        "p95": {
+          "type": "integer",
+          "description": "95th percentile of response size (nearest-rank)"
+        }
+      },
+      "required": [
+        "average",
+        "max",
+        "p95"
+      ],
+      "additionalProperties": false
+    },
+    "protocols": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "unique protocols, sorted"
+    },
+    "requestsByWeekday": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "string"
+          },
+          "weekdayCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "weekdayCount"
+        ],
+        "additionalProperties": false
+      },
+      "description": "requests per weekday, Monday first"
+    },
+    "comparison": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "currentPeriod": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "to": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        "comparedPeriod": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "to": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        "totalRequestsCount": {
+          "type": "integer"
+        },
+        "responseSizeInBytes": {
+          "type": "object",
+          "properties": {
+            "average": {
+              "type": "number",
+              "description": "mean response size, rounded to 2 decimals"
+            },
+            "max": {
+              "type": "integer",
+              "description": "maximum response size"
+            },
+            "p95": {
+              "type": "integer",
+              "description": "95th percentile of response size (nearest-rank)"
+            }
+          },
+          "required": [
+            "average",
+            "max",
+            "p95"
+          ],
+          "additionalProperties": false
+        },
+        "responseCodes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[1-5][0-9]{2}$"
+          }
+        },
+        "delta": {
+          "type": "object",
+          "properties": {
+            "totalRequestsCount": {
+              "type": "integer"
+            },
+            "average": {
+              "type": "number"
+            },
+            "max": {
+              "type": "integer"
+            },
+            "p95": {
+              "type": "integer"
+            },
+            "responseCodes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[1-5][0-9]{2}$"
+              }
+            }
+          },
+          "required": [
+            "totalRequestsCount",
+            "average",
+            "max",
+            "p95",
+            "responseCodes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "description": "present only when a compare period is set",
+      "required": [
+        "currentPeriod",
+        "comparedPeriod",
+        "totalRequestsCount",
+        "responseSizeInBytes",
+        "responseCodes",
+        "delta"
+      ],
+      "additionalProperties": false
+    },
+    "timeRange": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "first": {
+          "type": "string"
+        },
+        "last": {
+          "type": "string"
+        }
+      },
+      "description": "time of the first and last valid record in the sources, before any filtering",
+      "required": [
+        "first",
+        "last"
+      ],
+      "additionalProperties": false
+    },
+    "window": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "since": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "until": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "description": "applied --since/--until window",
+      "required": [
+        "since",
+        "until"
+      ],
+      "additionalProperties": false
+    },
+    "statusClasses": {
+      "type": "object",
+      "properties": {
+        "1xx": {
+          "type": "integer"
+        },
+        "2xx": {
+          "type": "integer"
+        },
+        "3xx": {
+          "type": "integer"
+        },
+        "4xx": {
+          "type": "integer"
+        },
+        "5xx": {
+          "type": "integer"
+        }
+      },
+      "description": "requests per status class in the main period",
+      "required": [
+        "1xx",
+        "2xx",
+        "3xx",
+        "4xx",
+        "5xx"
+      ],
+      "additionalProperties": false
+    },
+    "errorRate": {
+      "type": "number",
+      "description": "share of 5xx responses in the main period, 0..1"
+    },
+    "clientErrorRate": {
+      "type": "number",
+      "description": "share of 4xx responses in the main period, 0..1"
+    },
+    "methods": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "method",
+          "count"
+        ],
+        "additionalProperties": false
+      },
+      "description": "requests per HTTP method, count desc"
+    },
+    "topIPs": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ip",
+          "count"
+        ],
+        "additionalProperties": false
+      },
+      "description": "client IPs with most requests, count desc"
+    },
+    "topErrorResources": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource",
+          "count"
+        ],
+        "additionalProperties": false
+      },
+      "description": "resources with most 5xx responses, count desc"
+    },
+    "timeline": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "bucket": {
+          "type": "string",
+          "description": "bucket size, e.g. 1m, 5m, 1h"
+        },
+        "points": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "description": "bucket start, RFC3339 UTC"
+              },
+              "requests": {
+                "type": "integer"
+              },
+              "1xx": {
+                "type": "integer"
+              },
+              "2xx": {
+                "type": "integer"
+              },
+              "3xx": {
+                "type": "integer"
+              },
+              "4xx": {
+                "type": "integer"
+              },
+              "5xx": {
+                "type": "integer"
+              },
+              "errorRate": {
+                "type": "number",
+                "description": "share of 5xx in the bucket, 0..1"
+              },
+              "p95SizeBytes": {
+                "type": "integer",
+                "description": "95th percentile of response size in the bucket"
+              }
+            },
+            "required": [
+              "start",
+              "requests",
+              "1xx",
+              "2xx",
+              "3xx",
+              "4xx",
+              "5xx",
+              "errorRate",
+              "p95SizeBytes"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "description": "requests per time bucket, present only when bucket is set",
+      "required": [
+        "bucket",
+        "points"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$id": "https://github.com/avequa/incident-radar/schema/report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "incident-radar report",
+  "description": "NGINX access log statistics produced by incident-radar, schemaVersion 1.0.0",
+  "required": [
+    "schemaVersion",
+    "files",
+    "filesCount",
+    "processedLinesCount",
+    "malformedLinesCount",
+    "totalRequestsCount",
+    "responseCodes",
+    "resources",
+    "responseSizeInBytes",
+    "protocols",
+    "requestsByWeekday",
+    "statusClasses",
+    "errorRate",
+    "clientErrorRate",
+    "methods",
+    "topIPs",
+    "topErrorResources"
+  ],
+  "additionalProperties": false
+}
