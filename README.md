@@ -1,38 +1,54 @@
-# Incident Radar
+# incident-radar
 
-Инструмент на Go для разбора NGINX access-логов, который можно дать LLM-агенту как tool.
-Он читает логи из файла, glob-маски, URL или stdin за один потоковый проход и считает статистику:
-коды и классы ответов, долю 5xx, top ресурсов и IP, ресурсы с ошибками, размеры ответов (average/max/p95)
-и временной ряд без пропусков. По этому ряду видно, в какую минуту начался инцидент.
+Утилита на Go для разбора access-логов NGINX. Она за один проход читает логи из файла, по маске, по URL или из stdin и считает всё, что нужно при разборе инцидента: коды ответов, долю 5xx, самые частые URL и IP, URL с ошибками, размеры ответов и разбивку по минутам. По этой разбивке сразу видно, в какую минуту всё сломалось.
 
-Есть два бинарника:
+У утилиты два режима: обычный CLI для человека и MCP-сервер, через который её вызывают LLM-агенты как tool.
 
-- `incident-radar` — CLI. Пишет отчет в JSON, Markdown или AsciiDoc и использует только стандартную библиотеку Go.
-- `incident-radar-mcp` — MCP-сервер на официальном [Go SDK](https://github.com/modelcontextprotocol/go-sdk)
-  с tools `analyze_logs` и `list_sources`, транспортами stdio и streamable HTTP и ограничениями
-  для недоверенного вызывающего: allowlist каталогов и URL, лимиты, таймауты, токен.
+## Место в проекте
+
+Это основа проекта Incident Copilot: все данные о логах агенты получают только отсюда.
+
+| Репозиторий | Язык | Роль |
+|---|---|---|
+| **incident-radar** (этот) | Go | читает логи и считает статистику, для агентов это MCP-сервер с tools |
+| [llm-gateway](https://github.com/avequa/llm-gateway) | Go | шлюз к моделям |
+| [incident-copilot](https://github.com/avequa/incident-copilot) | Python | агенты на LangGraph |
+
+Модели нельзя отдавать сырые логи: они огромные и не влезают в контекст, а цифры модель легко перепутает. Поэтому считает радар, а модель получает короткую сводку в JSON и только объясняет её. Агенту мы не доверяем, его можно обмануть текстом прямо в логе. Поэтому все ограничения (какие папки читать, сколько байт, сколько времени) проверяет сервер, а не модель.
+
+## Что внутри
+
+- два бинарника: `incident-radar` (CLI, только стандартная библиотека Go) и `incident-radar-mcp` (MCP-сервер на официальном [Go SDK](https://github.com/modelcontextprotocol/go-sdk))
+- CLI и MCP вызывают одну и ту же функцию `analyze.Run`, поэтому цифры у них всегда одинаковые
+- отчёт в JSON, Markdown или AsciiDoc, формат JSON закреплён в [JSON Schema](schema/report.schema.json)
+- MCP по stdio и по streamable HTTP с Bearer-токеном
+- защита от недоверенного вызова: список разрешённых папок и URL, лимиты на размер, число файлов и время, проверка `../` и симлинков
+- тесты покрывают около 93% кода, в CI линтеры (golangci-lint с gosec), тесты с `-race`, сборка бинарников и Docker-образа
+- Docker-образ около 30 МБ на distroless, запускается не от root
 
 ```text
                     ┌──────────────────┐
-  CLI flags ───────►│ incident-radar   │──► JSON / Markdown / AsciiDoc
+  флаги CLI ───────►│ incident-radar   │──► JSON / Markdown / AsciiDoc
                     └────────┬─────────┘
                              │  analyze.Run(ctx, Options) -> Report
                     ┌────────▼─────────┐     source ─► parser ─► stats + агрегаты инцидента
-  MCP tool call ───►│ incident-radar-  │──► structuredContent (JSON Schema v1)
-  (LangGraph и др.) │ mcp + Policy     │
+  вызов tool ──────►│ incident-radar-  │──► structuredContent (JSON Schema)
+  (MCP, LangGraph)  │ mcp + Policy     │
                     └──────────────────┘
 ```
 
-## Быстрый старт
+## Запуск
 
 Нужен Go 1.26+.
 
 ```bash
-make build                                   # bin/incident-radar и bin/incident-radar-mcp
-./bin/incident-radar -p sample_logs/incident.log -q --bucket 5m
+make build    # bin/incident-radar и bin/incident-radar-mcp
+make test     # тесты и coverage.html
 ```
 
-Найти минуту начала инцидента в демо-логе `sample_logs/incident.log`, где с 08:17 по Москве сыплются 5xx на `/api/checkout`:
+## CLI
+
+Найти минуту начала инцидента в демо-логе, где с 08:17 по Москве сыплются 5xx на `/api/checkout`:
 
 ```bash
 ./bin/incident-radar -p sample_logs/incident.log -q --bucket 1m --top 3 \
@@ -49,103 +65,45 @@ make build                                   # bin/incident-radar и bin/inciden
 | 2026-03-14T05:18:00Z | 24 | 11 | 1 | 1 | 11 | 0.4583 | 29603 |
 ```
 
-Полные отчеты лежат в [examples/](examples/): [incident-onset.md](examples/incident-onset.md),
-[incident-overview.json](examples/incident-overview.json), [report.json](examples/report.json),
-[report.md](examples/report.md), [report.adoc](examples/report.adoc), [comparison.md](examples/comparison.md).
-
-## CLI
+Ещё примеры:
 
 ```bash
 ./bin/incident-radar --path 'logs/*.log' --format json --output reports/today.json --from 2025-03-01
-cat access.log | ./bin/incident-radar --path - -f json --quiet --bucket 5m
+cat access.log | ./bin/incident-radar --path - -f json --quiet --bucket 5m | jq .errorRate
 ```
 
-| Параметр         | Описание                                                                     |
-| ---------------- | ---------------------------------------------------------------------------- |
-| `--path`, `-p`   | Файл, glob-маска (в кавычках), URL или `-` для stdin. Обязательный           |
-| `--format`, `-f` | `json`, `markdown` или `adoc`. По умолчанию `markdown`                       |
-| `--output`, `-o` | Путь к отчету. Без него отчет печатается в stdout                            |
-| `--from`, `--to` | Период по датам `YYYY-MM-DD`, обе границы включительно                       |
-| `--compare-from`, `--compare-to` | Второй период по датам для сравнения с основным              |
-| `--since`        | Начало окна по времени, RFC3339, включительно: `2026-03-14T08:10:00+03:00`   |
-| `--until`        | Конец окна по времени, RFC3339, **не** включительно                          |
-| `--bucket`       | Шаг временного ряда: `1m`, `5m`, `1h` (любая длительность от `1s` до `24h`)  |
-| `--top`          | Размер top-списков: ресурсы, IP, ресурсы с 5xx. По умолчанию `10`            |
-| `--quiet`, `-q`  | Вместо WARN на каждую битую строку одна сводка в конце                       |
+| Параметр | Что значит |
+|---|---|
+| `--path`, `-p` | файл, маска в кавычках, URL или `-` для stdin, обязательный |
+| `--format`, `-f` | `json`, `markdown` или `adoc`, по умолчанию `markdown` |
+| `--output`, `-o` | куда записать отчёт, без него печатается в stdout |
+| `--from`, `--to` | период по датам `YYYY-MM-DD`, обе границы включительно |
+| `--compare-from`, `--compare-to` | второй период для сравнения с основным |
+| `--since`, `--until` | окно по времени в RFC3339, `until` не включительно |
+| `--bucket` | шаг разбивки: `1m`, `5m`, `1h` и т.п. |
+| `--top` | размер топов, по умолчанию 10 |
+| `--quiet`, `-q` | одна сводка про битые строки в конце вместо предупреждения на каждую |
 
-Правила:
+Отчёт идёт в stdout, предупреждения и ошибки в stderr, поэтому вывод можно сразу отдавать в `jq`. Существующий файл отчёта не перезаписывается. Битая строка лога пропускается с предупреждением, чтение продолжается. Коды выхода: `0` успех, `1` внутренняя ошибка или прерывание, `2` ошибка в аргументах или источнике.
 
-- расширение отчета должно совпадать с форматом: `.json`, `.md`, `.adoc`
-- при двух границах начало должно быть раньше конца: `--from < --to`, `--compare-from < --compare-to`, `--since < --until`
-- существующий отчет не перезаписывается: файл создается через `O_CREATE|O_EXCL`, недостающие папки создаются
-- отчет пишется только после того, как все источники прочитаны
-- отчет идет в stdout, предупреждения и ошибки идут в stderr, поэтому `incident-radar ... -f json | jq` работает
-- `--from/--to` фильтруют по дню записи так, как он записан в логе; `--since/--until` фильтруют по моменту времени
-  и учитывают часовой пояс. Если заданы оба фильтра, запись должна пройти оба
-- `--compare-*` сравнивает периоды за тот же проход, `delta` = основной − сравниваемый
-- Ctrl+C или SIGTERM прерывают чтение, программа завершается с кодом 1 и сообщением `error: interrupted`
-
-### Источники и битые строки
-
-- поддерживаются файлы `.log` и `.txt`; файлы по glob-маске сортируются по имени
-- URL должен вернуть 2xx. Таймауты стоят на соединение и заголовки, а не на все тело, поэтому большой
-  удаленный лог успевает дочитаться
-- формат строки — NGINX `combined`:
-  `$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"`
-- битая строка пропускается с предупреждением `WARN: skipped malformed log line (access.log:17)`, чтение продолжается
-- строка длиннее 1 MiB тоже считается битой: ее остаток дочитывается и выбрасывается без загрузки в память
-- `\r\n` и строка без `\n` в конце файла обрабатываются; пустые строки пропускаются молча
+Полные примеры отчётов лежат в [examples/](examples/).
 
 ## MCP-сервер
 
 ```bash
-./bin/incident-radar-mcp --root /var/log/nginx                       # stdio: клиент запускает сервер сам
+./bin/incident-radar-mcp --root /var/log/nginx                     # stdio: клиент сам запускает сервер
 INCIDENT_RADAR_MCP_TOKEN=secret ./bin/incident-radar-mcp \
-  --transport http --addr 127.0.0.1:8765 --root /var/log/nginx       # streamable HTTP на /mcp
+  --transport http --addr 127.0.0.1:8765 --root /var/log/nginx     # streamable HTTP на /mcp
 ```
 
-### Tools
+Tools:
 
-**`list_sources`** `{glob?}` — `.log`/`.txt` файлы внутри разрешенных каталогов с размером и временем изменения.
-Пути относительно `--root`. Это первый шаг агента.
+- **`list_sources`** `{glob?}`: файлы `.log` и `.txt` в разрешённых папках с размером и датой изменения
+- **`analyze_logs`** `{path, from?, to?, since?, until?, bucket?, compareFrom?, compareTo?, top?}`: сводка по JSON Schema отчёта. `bucket` ограничен значениями `1m|5m|15m|1h`, а `top` диапазоном `1..100`, чтобы маленьким моделям было проще вызывать tool правильно
 
-**`analyze_logs`** `{path, from?, to?, since?, until?, bucket?, compareFrom?, compareTo?, top?}` — отчет
-в `structuredContent` по [JSON Schema](schema/report.schema.json) и та же JSON-строка в `content` для клиентов
-без поддержки structured output. Входная схема ограничивает `bucket` значениями `1m|5m|15m|1h`, а `top` диапазоном `1..100`,
-чтобы небольшим локальным моделям было проще вызвать tool правильно.
+Если агент передал что-то не то, сервер возвращает ошибку tool с понятным текстом, например `timeline would have 1440 points (max 300): use a larger bucket or a narrower since/until window`. Модель читает её и сама исправляет аргументы.
 
-Ошибки (неверный аргумент, путь вне root, лимит, таймаут) возвращаются как tool error с понятным текстом
-на английском, например `timeline would have 1440 points (max 300): use a larger bucket or a narrower since/until window`.
-Агент может прочитать такую ошибку и повторить вызов с исправленными аргументами.
-
-Сервер передает клиенту `instructions` с рекомендуемым порядком работы: `list_sources` → `analyze_logs`
-без bucket (итоги и `timeRange`) → `analyze_logs` с узким `since/until` и `bucket=1m`.
-
-### Безопасность
-
-| Флаг                     | По умолчанию     | Что ограничивает                                                     |
-| ------------------------ | ---------------- | -------------------------------------------------------------------- |
-| `--root`                 | `.`              | каталог логов, относительные пути считаются от него                  |
-| `--allow-dir`            | —                | дополнительные каталоги, флаг можно повторять                        |
-| `--allow-url`            | —                | разрешенные префиксы URL (схема + хост + путь), флаг можно повторять; без него URL запрещены |
-| `--max-bytes`            | 512 MiB          | сколько байт можно прочитать за один вызов (сумма по всем файлам)    |
-| `--max-files`            | 100              | сколько файлов может найти glob                                      |
-| `--call-timeout`         | 60s              | время одного вызова                                                  |
-| `--max-concurrent`       | 4                | параллельные вызовы, остальные ждут своей очереди                    |
-| `--max-timeline-points`  | 300              | длина временного ряда, чтобы ответ поместился в контекст модели      |
-| `INCIDENT_RADAR_MCP_TOKEN` | —              | Bearer-токен для `/mcp`; без него сервер на не-loopback адресе пишет предупреждение |
-
-- путь проверяется до обращения к диску (`../`, абсолютные пути), а затем еще раз после раскрытия симлинков.
-  Поэтому по ошибкам нельзя узнать, существуют ли файлы вне root
-- каждый редирект URL заново проверяется по allowlist; URL с `user:pass@` отклоняется
-- stdin для tools выключен (`--allow-stdin` нужен только при встраивании)
-- HTTP: `http.CrossOriginProtection`, защита SDK от DNS rebinding, лимит тела запроса, `ReadHeaderTimeout`,
-  `/healthz` без токена для проб
-- логи пишутся через `slog` в stderr (JSON или text): старт с конфигурацией, каждый вызов tool с
-  `durationMs`, ошибкой и признаком `usageError`, HTTP-запросы со статусом. stdout отдан протоколу stdio
-- SIGINT/SIGTERM: HTTP-сервер ждет активные запросы до 10 с, затем закрывает соединения
-
-### Подключение из LangGraph
+Подключение из Python (LangGraph):
 
 ```python
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -156,13 +114,29 @@ client = MultiServerMCPClient({
         "url": "http://127.0.0.1:8765/mcp",
         "headers": {"Authorization": "Bearer secret"},
     },
-    # или локально по stdio:
-    # "incident-radar": {"transport": "stdio", "command": "./bin/incident-radar-mcp", "args": ["--root", "/var/log/nginx"]},
+    # или по stdio:
+    # "incident-radar": {"transport": "stdio", "command": "./bin/incident-radar-mcp", "args": ["--root", "logs"]},
 })
-tools = await client.get_tools()  # analyze_logs, list_sources -> передать в create_react_agent / ToolNode
+tools = await client.get_tools()   # list_sources, analyze_logs
 ```
 
-Проверено с `langchain-mcp-adapters` 0.3.2, `mcp` (Python) 1.30 и 2.3 по обоим транспортам.
+Проверено с `langchain-mcp-adapters` 0.3.2 и Python-пакетом `mcp` 1.30 по обоим транспортам. С `mcp` 2.3 клиент по stdio зависает на получении списка tools, поэтому в incident-copilot версия закреплена `mcp>=1.30,<2`.
+
+### Ограничения для агента
+
+| Флаг | По умолчанию | Что ограничивает |
+|---|---|---|
+| `--root` | `.` | папка с логами, относительные пути считаются от неё |
+| `--allow-dir` | нет | дополнительные папки, флаг можно повторять |
+| `--allow-url` | нет | разрешённые префиксы URL, без флага URL запрещены |
+| `--max-bytes` | 512 MiB | сколько можно прочитать за один вызов |
+| `--max-files` | 100 | сколько файлов может найти маска |
+| `--call-timeout` | 60s | время одного вызова |
+| `--max-concurrent` | 4 | сколько вызовов одновременно |
+| `--max-timeline-points` | 300 | длина разбивки по времени, чтобы ответ влез в контекст модели |
+| `INCIDENT_RADAR_MCP_TOKEN` | нет | Bearer-токен для `/mcp` |
+
+Путь проверяется дважды: до обращения к диску и после раскрытия симлинков. Каждый редирект URL снова сверяется со списком разрешённых. Логи сервера пишутся через `slog` в stderr: каждый вызов tool с длительностью и ошибкой.
 
 ### Docker
 
@@ -172,117 +146,35 @@ docker run --rm -p 8765:8765 -e INCIDENT_RADAR_MCP_TOKEN=secret \
   -v /var/log/nginx:/logs:ro --read-only --cap-drop ALL incident-radar:0.1.0
 ```
 
-Образ весит ~30 MB: distroless static, пользователь `nonroot`, оба бинарника. По умолчанию запускается
-MCP по HTTP на `0.0.0.0:8765` с `--root /logs`. CLI вызывается через `docker exec <container> incident-radar ...`.
-
-## JSON-контракт
-
-Отчет — это версионированный контракт: `schemaVersion` (сейчас `1.0.0`) и файл
-[schema/report.schema.json](schema/report.schema.json) (JSON Schema 2020-12). Схема генерируется из Go-типов
-(`make schema`), тест падает, если файл разошелся с кодом. Тот же объект схемы MCP-сервер отдает
-как `outputSchema`, и SDK проверяет по нему каждый ответ.
-
-| Поле                  | Что это                                                                    |
-| --------------------- | -------------------------------------------------------------------------- |
-| `schemaVersion`       | версия контракта                                                           |
-| `files`, `filesCount` | прочитанные источники (`stdin` для `-`)                                    |
-| `processedLinesCount` | непустые строки, нормальные и битые                                        |
-| `malformedLinesCount` | пропущенные битые строки                                                   |
-| `timeRange`           | первая и последняя корректная запись **до** фильтров — какой период вообще покрыт логами |
-| `window`              | примененные `since`/`until`, есть только если они заданы                   |
-| `totalRequestsCount`  | запросы основного периода                                                  |
-| `responseCodes`       | код → количество                                                           |
-| `statusClasses`       | `1xx`…`5xx` → количество                                                   |
-| `errorRate`           | доля 5xx, 0..1, 4 знака                                                    |
-| `clientErrorRate`     | доля 4xx                                                                   |
-| `resources`           | top-N ресурсов: `resource`, `totalRequestsCount`                           |
-| `topErrorResources`   | top-N ресурсов по числу 5xx: `resource`, `count`                           |
-| `topIPs`              | top-N IP: `ip`, `count`                                                    |
-| `methods`             | все методы: `method`, `count`                                              |
-| `responseSizeInBytes` | `average` (2 знака), `max`, `p95`                                          |
-| `protocols`           | уникальные протоколы по алфавиту                                           |
-| `requestsByWeekday`   | 7 дней с понедельника: `weekday`, `weekdayCount`                           |
-| `comparison`          | второй период и `delta`, есть только с `--compare-*`                       |
-| `timeline`            | есть только с `bucket`: `bucket` и `points[]` = `start`, `requests`, `1xx`…`5xx`, `errorRate`, `p95SizeBytes` |
-
-- все время в отчете указано в RFC3339 UTC; интервалы ряда выровнены по UTC (`5m` начинается в :00, :05, …)
-- ряд идет от первого до последнего непустого интервала **без пропусков**: минута без запросов
-  дает точку с нулями. Ноль трафика — тоже сигнал инцидента
-- списки никогда не равны `null`, в пустом отчете это `[]`
-- в формате combined нет времени ответа, поэтому `p95` считается по размеру ответа, а не по латентности
-
 ## Как считается
 
-- **один проход**: каждая запись один раз раскладывается по всем сборщикам: основной период, окно, период
-  сравнения, агрегаты инцидента, временной ряд. Вторая метрика не означает второе чтение лога
-- **p95** считается методом nearest-rank: значения сортируются, берется элемент с однобазовым номером `ceil(0.95 × N)`.
-  Для `100, 200, 300, 400, 500` p95 = `500`. Пустой набор дает `0`
-- **сортировка top-списков**: по убыванию количества, при равенстве по имени. Результат воспроизводим и не зависит
-  от порядка `map` и файловой системы
-- **память**: строки не накапливаются, буфер строки ограничен 1 MiB. Для p95 хранятся размеры ответов (O(N) int),
-  для top — словари уникальных ресурсов и IP
+- один проход по логу: каждая запись сразу попадает во все подсчёты, второе чтение не нужно
+- строки не копятся в памяти, буфер строки ограничен 1 MiB
+- разбивка по времени без пропусков: минута без запросов тоже попадает в отчёт с нулями, ведь ноль трафика тоже признак инцидента
+- всё время в отчёте в UTC, топы отсортированы по количеству, при равенстве по имени, поэтому результат всегда одинаковый
+- p95 считается по размеру ответа: в формате combined нет времени ответа
 
-## Exit codes (CLI)
-
-| Код | Значение |
-| --: | -------- |
-| `0` | успех |
-| `1` | внутренняя ошибка (ошибка записи, паника) или прерывание по сигналу |
-| `2` | ошибка использования или источника: флаг, формат, дата, `from >= to`, неверный `bucket`/`top`, нет файла, пустой glob, HTTP не 2xx, неверное расширение, существующий отчет, превышен лимит |
-
-## Устройство
+## Структура
 
 ```text
 cmd/
-  incident-radar/        CLI: сигналы -> app.Run
-  incident-radar-mcp/    MCP-сервер: флаги, slog, выбор транспорта
-  log-server/            локальный HTTP-сервер с sample_logs для ручной проверки URL
+  incident-radar/       CLI
+  incident-radar-mcp/   MCP-сервер
+  log-server/           локальный HTTP-сервер с sample_logs для проверки чтения по URL
 internal/
-  cli/        разбор и проверка флагов
-  source/     поиск источников (файл, glob, URL) и открытие потока
-  parser/     строка combined -> LogRecord
-  stats/      базовая статистика и фильтр по датам
-  report/     базовый отчет и рендер JSON/Markdown/AsciiDoc
-  output/     запись отчета без перезаписи
-  app/        тонкая обертка CLI: флаги -> analyze.Run -> рендер -> файл/stdout -> exit code
-  analyze/    движок: Options, Run, окно since/until, временной ряд, агрегаты инцидента,
-              Policy (allowlist, лимиты), ListSources, рендер дополнительных разделов
-  mcpserver/  tools, JSON Schema отчета, stdio и streamable HTTP, токен, access-лог, graceful shutdown
-schema/       report.schema.json — контракт отчета
-sample_logs/  access.txt, mixed.txt и incident.log с инцидентом в 08:17 MSK
+  source/     поиск источников (файл, маска, URL) и открытие потока
+  parser/     разбор строки формата combined
+  stats/      базовая статистика
+  analyze/    движок: окно по времени, разбивка, агрегаты инцидента, ограничения для агента
+  report/     рендер JSON, Markdown, AsciiDoc
+  mcpserver/  tools, JSON Schema, транспорты, токен, корректная остановка
+  cli/, app/, output/   флаги, запуск CLI, запись отчёта
+schema/       report.schema.json
+sample_logs/  демо-логи, в incident.log инцидент в 08:17 по Москве
 ```
-
-CLI и MCP вызывают один и тот же `analyze.Run(ctx, Options)`, поэтому CLI и tool дают одинаковые цифры.
-Ограничения для агента задаются через `analyze.Policy`; в CLI она равна `nil`, то есть ограничений нет.
-
-## Разработка
-
-```bash
-make test        # тесты + coverage.html
-make test-race   # race detector
-make check       # go mod tidy -diff, golangci-lint (gofumpt, goimports, gosec, revive, errorlint, ...)
-make schema      # перегенерировать schema/report.schema.json
-make serve       # sample_logs по http://127.0.0.1:8000/
-make mcp         # MCP по stdio на sample_logs
-make mcp-http    # MCP по HTTP на 127.0.0.1:8765
-```
-
-Что проверяют тесты (покрытие ~93%):
-
-- **потоки**: управляемые `io.Reader`, побайтовое чтение, строки длиннее 1 MiB без больших файлов, обрыв потока, отмена context
-- **политика**: `../`, симлинк наружу, несуществующий файл вне root, префиксы URL и редиректы, лимиты байт и файлов
-- **MCP**: tools через in-memory транспорт SDK, тот же сценарий по streamable HTTP с токеном, e2e через запуск
-  бинарника подпроцессом (`mcp.CommandTransport`)
-- **CLI**: e2e через собранный бинарник с проверкой настоящих exit codes, stdin через pipe
-- **контракт**: файл схемы совпадает с кодом, реальный отчет проходит валидацию
-
-CI в GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) запускает линтеры, тесты с `-race`
-и сборку бинарников и Docker-образа.
 
 ## Ограничения
 
-- только формат NGINX `combined`, других форматов нет
-- glob работает по правилам `filepath.Glob`, без рекурсивного `**`
-- p95 точный, но требует памяти по числу записей; для очень больших логов его стоит заменить на гистограмму
-  или t-digest
-- в логе нет времени ответа, поэтому латентность не считается
+- только формат NGINX `combined`
+- маска без рекурсивного `**`
+- для очень больших логов p95 лучше считать гистограммой или t-digest, сейчас размеры ответов хранятся в памяти
